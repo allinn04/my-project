@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>じゃんけんゲーム</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      text-align: center;
+      padding: 40px 30px;
+      background: #16213e;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      max-width: 480px;
+      width: 90%;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #e94560;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 32px;
+    }
+
+    .score-board {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .score-item {
+      background: #0f3460;
+      border-radius: 12px;
+      padding: 12px 24px;
+    }
+
+    .score-label {
+      font-size: 0.75rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .score-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #e94560;
+    }
+
+    .choices {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .choice-btn {
+      font-size: 3rem;
+      width: 90px;
+      height: 90px;
+      border: 3px solid #0f3460;
+      border-radius: 50%;
+      background: #0f3460;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .choice-btn:hover {
+      transform: scale(1.12);
+      border-color: #e94560;
+      background: #1a2e50;
+    }
+
+    .choice-btn:active {
+      transform: scale(0.95);
+    }
+
+    .choice-btn.selected {
+      border-color: #e94560;
+      background: #2a1a30;
+    }
+
+    .battle {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+      min-height: 100px;
+    }
+
+    .hand {
+      text-align: center;
+    }
+
+    .hand-emoji {
+      font-size: 4rem;
+      display: block;
+      transition: transform 0.3s;
+    }
+
+    .hand-label {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .vs {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #e94560;
+    }
+
+    .result {
+      font-size: 1.6rem;
+      font-weight: bold;
+      min-height: 2.2rem;
+      margin-bottom: 16px;
+    }
+
+    .result.win  { color: #4caf50; }
+    .result.lose { color: #e94560; }
+    .result.draw { color: #ffb703; }
+
+    .reset-btn {
+      background: transparent;
+      border: 2px solid #e94560;
+      color: #e94560;
+      padding: 10px 28px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .reset-btn:hover {
+      background: #e94560;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>じゃんけんゲーム</h1>
+    <p class="subtitle">グー・チョキ・パーを選んでね！</p>
+
+    <div class="score-board">
+      <div class="score-item">
+        <div class="score-label">あなた</div>
+        <div class="score-value" id="player-score">0</div>
+      </div>
+      <div class="score-item">
+        <div class="score-label">引き分け</div>
+        <div class="score-value" id="draw-score">0</div>
+      </div>
+      <div class="score-item">
+        <div class="score-label">コンピューター</div>
+        <div class="score-value" id="cpu-score">0</div>
+      </div>
+    </div>
+
+    <div class="choices">
+      <button class="choice-btn" data-choice="rock"     title="グー">✊</button>
+      <button class="choice-btn" data-choice="scissors" title="チョキ">✌️</button>
+      <button class="choice-btn" data-choice="paper"    title="パー">✋</button>
+    </div>
+
+    <div class="battle">
+      <div class="hand">
+        <span class="hand-emoji" id="player-hand">❓</span>
+        <div class="hand-label">あなた</div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="hand">
+        <span class="hand-emoji" id="cpu-hand">❓</span>
+        <div class="hand-label">コンピューター</div>
+      </div>
+    </div>
+
+    <div class="result" id="result"></div>
+
+    <button class="reset-btn" id="reset-btn">スコアをリセット</button>
+  </div>
+
+  <script>
+    const HANDS = {
+      rock:     { emoji: '✊', label: 'グー' },
+      scissors: { emoji: '✌️', label: 'チョキ' },
+      paper:    { emoji: '✋', label: 'パー' },
+    };
+
+    // rock beats scissors, scissors beats paper, paper beats rock
+    const WINS_AGAINST = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
+
+    const choices = document.querySelectorAll('.choice-btn');
+    const playerHandEl = document.getElementById('player-hand');
+    const cpuHandEl    = document.getElementById('cpu-hand');
+    const resultEl     = document.getElementById('result');
+    const playerScoreEl = document.getElementById('player-score');
+    const cpuScoreEl    = document.getElementById('cpu-score');
+    const drawScoreEl   = document.getElementById('draw-score');
+    const resetBtn      = document.getElementById('reset-btn');
+
+    let scores = { player: 0, cpu: 0, draw: 0 };
+
+    function randomChoice() {
+      const keys = Object.keys(HANDS);
+      return keys[Math.floor(Math.random() * keys.length)];
+    }
+
+    function getResult(player, cpu) {
+      if (player === cpu) return 'draw';
+      return WINS_AGAINST[player] === cpu ? 'win' : 'lose';
+    }
+
+    function play(playerChoice) {
+      const cpuChoice = randomChoice();
+
+      // Update hand emojis
+      playerHandEl.textContent = HANDS[playerChoice].emoji;
+      cpuHandEl.textContent    = HANDS[cpuChoice].emoji;
+
+      // Determine outcome
+      const outcome = getResult(playerChoice, cpuChoice);
+
+      const messages = {
+        win:  '🎉 あなたの勝ち！',
+        lose: '😢 コンピューターの勝ち…',
+        draw: '🤝 引き分け！',
+      };
+
+      resultEl.textContent = messages[outcome];
+      resultEl.className   = 'result ' + outcome;
+
+      // Update scores
+      if (outcome === 'win')  scores.player++;
+      if (outcome === 'lose') scores.cpu++;
+      if (outcome === 'draw') scores.draw++;
+
+      playerScoreEl.textContent = scores.player;
+      cpuScoreEl.textContent    = scores.cpu;
+      drawScoreEl.textContent   = scores.draw;
+
+      // Highlight selected button
+      choices.forEach(btn => btn.classList.remove('selected'));
+      document.querySelector(`[data-choice="${playerChoice}"]`).classList.add('selected');
+    }
+
+    choices.forEach(btn => {
+      btn.addEventListener('click', () => play(btn.dataset.choice));
+    });
+
+    resetBtn.addEventListener('click', () => {
+      scores = { player: 0, cpu: 0, draw: 0 };
+      playerScoreEl.textContent = '0';
+      cpuScoreEl.textContent    = '0';
+      drawScoreEl.textContent   = '0';
+      playerHandEl.textContent  = '❓';
+      cpuHandEl.textContent     = '❓';
+      resultEl.textContent      = '';
+      resultEl.className        = 'result';
+      choices.forEach(btn => btn.classList.remove('selected'));
+    });
+  </script>
+</body>
+</html>
