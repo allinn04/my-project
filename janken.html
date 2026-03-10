@@ -162,6 +162,61 @@
       background: #e94560;
       color: #fff;
     }
+
+    /* ── サスペンス演出 ────────────────────────── */
+    @keyframes rainbow-bg {
+      0%   { background: hsl(0,   100%, 45%); }
+      16%  { background: hsl(40,  100%, 50%); }
+      33%  { background: hsl(120, 100%, 35%); }
+      50%  { background: hsl(200, 100%, 45%); }
+      66%  { background: hsl(270, 100%, 55%); }
+      83%  { background: hsl(320, 100%, 50%); }
+      100% { background: hsl(360, 100%, 45%); }
+    }
+
+    @keyframes rainbow-shadow {
+      0%   { box-shadow: 0 0 60px 20px hsl(0,   100%, 60%), 0 8px 32px rgba(0,0,0,0.4); }
+      16%  { box-shadow: 0 0 60px 20px hsl(40,  100%, 65%), 0 8px 32px rgba(0,0,0,0.4); }
+      33%  { box-shadow: 0 0 60px 20px hsl(120, 100%, 50%), 0 8px 32px rgba(0,0,0,0.4); }
+      50%  { box-shadow: 0 0 60px 20px hsl(200, 100%, 60%), 0 8px 32px rgba(0,0,0,0.4); }
+      66%  { box-shadow: 0 0 60px 20px hsl(270, 100%, 70%), 0 8px 32px rgba(0,0,0,0.4); }
+      83%  { box-shadow: 0 0 60px 20px hsl(320, 100%, 65%), 0 8px 32px rgba(0,0,0,0.4); }
+      100% { box-shadow: 0 0 60px 20px hsl(360, 100%, 60%), 0 8px 32px rgba(0,0,0,0.4); }
+    }
+
+    @keyframes red-pulse {
+      0%, 100% { background: #1a1a2e; }
+      50%      { background: #5a0808; }
+    }
+
+    @keyframes red-shadow {
+      0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+      50%      { box-shadow: 0 0 80px 30px rgba(220, 30, 30, 0.85), 0 8px 32px rgba(0,0,0,0.4); }
+    }
+
+    body.suspense-rainbow {
+      animation: rainbow-bg 0.55s linear infinite;
+    }
+    body.suspense-rainbow .container {
+      animation: rainbow-shadow 0.55s linear infinite;
+    }
+
+    body.suspense-red {
+      animation: red-pulse 0.5s ease-in-out infinite;
+    }
+    body.suspense-red .container {
+      animation: red-shadow 0.5s ease-in-out infinite;
+    }
+
+    .suspense-label {
+      font-size: 0.85rem;
+      min-height: 1.4rem;
+      margin-bottom: 8px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      color: #aaa;
+      transition: color 0.3s;
+    }
   </style>
 </head>
 <body>
@@ -202,6 +257,7 @@
       </div>
     </div>
 
+    <div class="suspense-label" id="suspense-label"></div>
     <div class="result" id="result"></div>
 
     <button class="reset-btn" id="reset-btn">スコアをリセット</button>
@@ -218,15 +274,17 @@
     const WINS_AGAINST = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
 
     const choices = document.querySelectorAll('.choice-btn');
-    const playerHandEl = document.getElementById('player-hand');
-    const cpuHandEl    = document.getElementById('cpu-hand');
-    const resultEl     = document.getElementById('result');
+    const playerHandEl  = document.getElementById('player-hand');
+    const cpuHandEl     = document.getElementById('cpu-hand');
+    const resultEl      = document.getElementById('result');
+    const suspenseLabelEl = document.getElementById('suspense-label');
     const playerScoreEl = document.getElementById('player-score');
     const cpuScoreEl    = document.getElementById('cpu-score');
     const drawScoreEl   = document.getElementById('draw-score');
     const resetBtn      = document.getElementById('reset-btn');
 
     let scores = { player: 0, cpu: 0, draw: 0 };
+    let isSuspense = false;
 
     function randomChoice() {
       const keys = Object.keys(HANDS);
@@ -238,37 +296,89 @@
       return WINS_AGAINST[player] === cpu ? 'win' : 'lose';
     }
 
+    // ランダムに演出ティアを抽選 (手とは無関係)
+    // rainbow: ~15%  |  red: ~35%  |  normal: ~50%
+    function randomTier() {
+      const r = Math.random();
+      if (r < 0.15) return 'rainbow';
+      if (r < 0.50) return 'red';
+      return 'normal';
+    }
+
+    function clearSuspenseAnimation() {
+      document.body.classList.remove('suspense-rainbow', 'suspense-red');
+    }
+
     function play(playerChoice) {
-      const cpuChoice = randomChoice();
+      if (isSuspense) return;
+      isSuspense = true;
 
-      // Update hand emojis
-      playerHandEl.textContent = HANDS[playerChoice].emoji;
-      cpuHandEl.textContent    = HANDS[cpuChoice].emoji;
-
-      // Determine outcome
-      const outcome = getResult(playerChoice, cpuChoice);
-
-      const messages = {
-        win:  '🎉 あなたの勝ち！',
-        lose: '😢 コンピューターの勝ち…',
-        draw: '🤝 引き分け！',
-      };
-
-      resultEl.textContent = messages[outcome];
-      resultEl.className   = 'result ' + outcome;
-
-      // Update scores
-      if (outcome === 'win')  scores.player++;
-      if (outcome === 'lose') scores.cpu++;
-      if (outcome === 'draw') scores.draw++;
-
-      playerScoreEl.textContent = scores.player;
-      cpuScoreEl.textContent    = scores.cpu;
-      drawScoreEl.textContent   = scores.draw;
-
-      // Highlight selected button
-      choices.forEach(btn => btn.classList.remove('selected'));
+      // 選択ハイライト & ボタン無効化
+      choices.forEach(btn => {
+        btn.classList.remove('selected');
+        btn.disabled = true;
+      });
       document.querySelector(`[data-choice="${playerChoice}"]`).classList.add('selected');
+
+      // プレイヤーの手を即表示、CPU は考え中
+      playerHandEl.textContent = HANDS[playerChoice].emoji;
+      cpuHandEl.textContent    = '🤔';
+      resultEl.textContent     = '';
+      resultEl.className       = 'result';
+
+      // 勝利期待度をランダム抽選して演出を適用
+      const tier = randomTier();
+      clearSuspenseAnimation();
+      if (tier === 'rainbow') {
+        document.body.classList.add('suspense-rainbow');
+        suspenseLabelEl.textContent = '✨ 虹色オーラ発動中... ✨';
+        suspenseLabelEl.style.color = '#fff';
+      } else if (tier === 'red') {
+        document.body.classList.add('suspense-red');
+        suspenseLabelEl.textContent = '🔥 赤熱オーラ発動中... 🔥';
+        suspenseLabelEl.style.color = '#ff6666';
+      } else {
+        suspenseLabelEl.textContent = '...';
+        suspenseLabelEl.style.color = '#888';
+      }
+
+      // CPU の手をサイクル表示（ドキドキ演出）
+      const handKeys = Object.keys(HANDS);
+      let idx = 0;
+      const cycleId = setInterval(() => {
+        cpuHandEl.textContent = HANDS[handKeys[idx % handKeys.length]].emoji;
+        idx++;
+      }, 180);
+
+      // 2秒後に結果を表示
+      setTimeout(() => {
+        clearInterval(cycleId);
+        clearSuspenseAnimation();
+        suspenseLabelEl.textContent = '';
+
+        const cpuChoice = randomChoice();
+        cpuHandEl.textContent = HANDS[cpuChoice].emoji;
+
+        const outcome = getResult(playerChoice, cpuChoice);
+        const messages = {
+          win:  '🎉 あなたの勝ち！',
+          lose: '😢 コンピューターの勝ち…',
+          draw: '🤝 引き分け！',
+        };
+        resultEl.textContent = messages[outcome];
+        resultEl.className   = 'result ' + outcome;
+
+        if (outcome === 'win')  scores.player++;
+        if (outcome === 'lose') scores.cpu++;
+        if (outcome === 'draw') scores.draw++;
+
+        playerScoreEl.textContent = scores.player;
+        cpuScoreEl.textContent    = scores.cpu;
+        drawScoreEl.textContent   = scores.draw;
+
+        choices.forEach(btn => { btn.disabled = false; });
+        isSuspense = false;
+      }, 2000);
     }
 
     choices.forEach(btn => {
@@ -276,6 +386,7 @@
     });
 
     resetBtn.addEventListener('click', () => {
+      if (isSuspense) return;
       scores = { player: 0, cpu: 0, draw: 0 };
       playerScoreEl.textContent = '0';
       cpuScoreEl.textContent    = '0';
@@ -284,6 +395,7 @@
       cpuHandEl.textContent     = '❓';
       resultEl.textContent      = '';
       resultEl.className        = 'result';
+      suspenseLabelEl.textContent = '';
       choices.forEach(btn => btn.classList.remove('selected'));
     });
   </script>
