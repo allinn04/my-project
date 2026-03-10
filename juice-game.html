@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧃 ジュース代決定ゲーム</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080818;
+      --card: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.12);
+      --accent: #00c8ff;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    /* ===== TITLE ===== */
+    .title {
+      font-size: clamp(1.4rem, 5vw, 2.2rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      margin-bottom: 30px;
+      text-shadow: 0 0 24px var(--accent), 0 0 60px rgba(0,200,255,0.3);
+    }
+
+    /* ===== INPUT PHASE ===== */
+    #input-phase {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 32px;
+      width: min(420px, 100%);
+      backdrop-filter: blur(10px);
+    }
+
+    .section-label {
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    #names-container { margin-bottom: 14px; }
+
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .name-row .num {
+      min-width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0,200,255,0.15);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .name-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    .name-row input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,200,255,0.15);
+    }
+
+    .btn-rm {
+      background: transparent;
+      border: 1px solid rgba(255,80,80,0.4);
+      color: rgba(255,100,100,0.8);
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-rm:hover { background: rgba(255,80,80,0.15); border-color: #f55; color: #f55; }
+
+    #add-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: transparent;
+      border: 1px dashed rgba(0,200,255,0.4);
+      color: var(--accent);
+      border-radius: 10px;
+      padding: 9px 18px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.25s;
+      margin-bottom: 22px;
+    }
+    #add-btn:hover { background: rgba(0,200,255,0.08); border-style: solid; }
+    #add-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    #start-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #ff6030 0%, #ffa040 50%, #ff6030 100%);
+      background-size: 200% 100%;
+      border: none;
+      color: #fff;
+      font-size: 1.25rem;
+      font-weight: 800;
+      padding: 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(255,96,48,0.4);
+    }
+    #start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,96,48,0.6); }
+    #start-btn:active { transform: translateY(0); }
+
+    /* ===== GAME PHASE ===== */
+    #game-phase {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: min(560px, 100%);
+    }
+
+    .game-header {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #ff8040;
+      margin-bottom: 28px;
+      animation: flicker 1.2s ease-in-out infinite;
+    }
+
+    @keyframes flicker {
+      0%,100% { opacity: 1; text-shadow: 0 0 16px #ff8040; }
+      50%      { opacity: 0.7; text-shadow: 0 0 4px #ff8040; }
+    }
+
+    #players-container { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+    .player-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      transition: opacity 0.6s, filter 0.6s, border-color 0.15s, box-shadow 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .player-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+      transform: translateX(-100%);
+    }
+
+    .player-card.shimmer::before {
+      animation: shimmer 0.6s ease-out forwards;
+    }
+
+    @keyframes shimmer {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(100%); }
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .p-name { font-size: 1.1rem; font-weight: 700; }
+
+    .p-pct {
+      font-size: 1.3rem;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      color: #ccc;
+      transition: color 0.2s;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    .bar-bg {
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      height: 18px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.18s cubic-bezier(0.4,0,0.2,1);
+      background: linear-gradient(90deg, #0088ff, #00c8ff);
+      position: relative;
+    }
+
+    /* HOT (70-89%) */
+    .player-card.hot .bar-fill {
+      background: linear-gradient(90deg, #ff4400, #ff9900);
+    }
+    .player-card.hot .p-pct { color: #ffaa44; }
+    .player-card.hot {
+      border-color: rgba(255,120,0,0.5);
+      box-shadow: 0 0 18px rgba(255,120,0,0.35), inset 0 0 20px rgba(255,120,0,0.05);
+    }
+
+    /* RAINBOW (90%+) */
+    .player-card.rainbow {
+      animation: rb-border 0.5s linear infinite;
+    }
+    .player-card.rainbow .bar-fill {
+      animation: rb-bar 0.5s linear infinite;
+    }
+    .player-card.rainbow .p-pct {
+      animation: rb-text 0.5s linear infinite;
+    }
+
+    @keyframes rb-border {
+      0%   { border-color: #ff0000; box-shadow: 0 0 22px #ff000066, inset 0 0 20px #ff000022; }
+      16%  { border-color: #ff8800; box-shadow: 0 0 22px #ff880066, inset 0 0 20px #ff880022; }
+      33%  { border-color: #ffff00; box-shadow: 0 0 22px #ffff0066, inset 0 0 20px #ffff0022; }
+      50%  { border-color: #00ff44; box-shadow: 0 0 22px #00ff4466, inset 0 0 20px #00ff4422; }
+      66%  { border-color: #0088ff; box-shadow: 0 0 22px #0088ff66, inset 0 0 20px #0088ff22; }
+      83%  { border-color: #cc00ff; box-shadow: 0 0 22px #cc00ff66, inset 0 0 20px #cc00ff22; }
+      100% { border-color: #ff0000; box-shadow: 0 0 22px #ff000066, inset 0 0 20px #ff000022; }
+    }
+    @keyframes rb-bar {
+      0%   { background: linear-gradient(90deg, #ff0000, #ff8800); }
+      16%  { background: linear-gradient(90deg, #ff8800, #ffff00); }
+      33%  { background: linear-gradient(90deg, #ffff00, #00ff44); }
+      50%  { background: linear-gradient(90deg, #00ff44, #0088ff); }
+      66%  { background: linear-gradient(90deg, #0088ff, #cc00ff); }
+      83%  { background: linear-gradient(90deg, #cc00ff, #ff0000); }
+      100% { background: linear-gradient(90deg, #ff0000, #ff8800); }
+    }
+    @keyframes rb-text {
+      0%   { color: #ff6666; }
+      25%  { color: #ffff66; }
+      50%  { color: #66ff88; }
+      75%  { color: #66aaff; }
+      100% { color: #ff6666; }
+    }
+
+    /* ELIMINATED */
+    .player-card.eliminated {
+      opacity: 0.22;
+      filter: grayscale(1) blur(0.5px);
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    /* ===== RESULT PHASE ===== */
+    #result-phase {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+    }
+
+    .result-label {
+      font-size: 1rem;
+      color: #888;
+      letter-spacing: 0.1em;
+    }
+
+    .result-name {
+      font-size: clamp(2.2rem, 9vw, 3.8rem);
+      font-weight: 900;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #ff8040, #ffcc00, #ff8040);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: name-shine 2s linear infinite, pop-in 0.5s cubic-bezier(0.175,0.885,0.32,1.275) both;
+    }
+
+    @keyframes name-shine {
+      from { background-position: 0% center; }
+      to   { background-position: 200% center; }
+    }
+    @keyframes pop-in {
+      from { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .result-pays {
+      font-size: clamp(1.4rem, 5vw, 2rem);
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255,200,0,0.5);
+    }
+
+    #push-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 16px;
+      gap: 8px;
+    }
+
+    .push-hint {
+      font-size: 0.8rem;
+      color: #888;
+      letter-spacing: 0.05em;
+      animation: hint-blink 1s ease-in-out infinite;
+    }
+    @keyframes hint-blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    #push-btn {
+      background: linear-gradient(135deg, #ff0077, #ff6600);
+      border: none;
+      color: #fff;
+      font-size: clamp(1.6rem, 6vw, 2.5rem);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      padding: 18px 52px;
+      border-radius: 22px;
+      cursor: pointer;
+      animation: push-bounce 0.45s ease-in-out infinite alternate;
+      box-shadow: 0 0 40px rgba(255,0,120,0.6), 0 6px 24px rgba(0,0,0,0.5);
+    }
+    @keyframes push-bounce {
+      from { transform: scale(1)   rotate(-1deg); box-shadow: 0 0 30px rgba(255,0,120,0.5), 0 6px 20px rgba(0,0,0,0.5); }
+      to   { transform: scale(1.06) rotate(1deg); box-shadow: 0 0 60px rgba(255,0,120,0.9), 0 10px 30px rgba(0,0,0,0.5); }
+    }
+
+    #reset-btn {
+      display: none;
+      margin-top: 24px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #ccc;
+      padding: 12px 32px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #reset-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+    /* ===== REVERSAL OVERLAY ===== */
+    #reversal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: rgba(0,0,0,0.88);
+      animation: overlay-in 0.2s ease-out;
+    }
+    @keyframes overlay-in { from{opacity:0} to{opacity:1} }
+
+    .rev-flash {
+      font-size: clamp(3rem, 12vw, 6rem);
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      animation: rev-color 0.3s linear infinite;
+    }
+    @keyframes rev-color {
+      0%  { color: #ff0040; text-shadow: 0 0 30px #ff0040; }
+      25% { color: #ffee00; text-shadow: 0 0 30px #ffee00; }
+      50% { color: #00ff88; text-shadow: 0 0 30px #00ff88; }
+      75% { color: #00aaff; text-shadow: 0 0 30px #00aaff; }
+      100%{ color: #ff0040; text-shadow: 0 0 30px #ff0040; }
+    }
+
+    .rev-name {
+      font-size: clamp(1.8rem, 7vw, 3rem);
+      font-weight: 800;
+      color: #fff;
+      text-align: center;
+      opacity: 0;
+      animation: rev-name-in 0.4s 0.8s ease-out forwards;
+    }
+    @keyframes rev-name-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== PARTICLES ===== */
+    .particle {
+      position: fixed;
+      font-size: 1.8rem;
+      pointer-events: none;
+      z-index: 300;
+      animation: particle-fall linear forwards;
+    }
+    @keyframes particle-fall {
+      0%   { transform: translateY(-40px) rotate(0deg);   opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(110vh) rotate(540deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="title">🧃 ジュース代 決定ゲーム</div>
+
+<!-- ====== INPUT PHASE ====== -->
+<div id="input-phase">
+  <div class="section-label">参加者を入力（2〜5人）</div>
+  <div id="names-container">
+    <div class="name-row">
+      <div class="num">1</div>
+      <input type="text" placeholder="名前を入力" maxlength="10">
+    </div>
+    <div class="name-row">
+      <div class="num">2</div>
+      <input type="text" placeholder="名前を入力" maxlength="10">
+    </div>
+  </div>
+  <button id="add-btn">＋ 参加者を追加</button>
+  <button id="start-btn">🎮 スタート！</button>
+</div>
+
+<!-- ====== GAME PHASE ====== -->
+<div id="game-phase">
+  <div class="game-header" id="game-header">⚡ 支払い期待度 計算中... ⚡</div>
+  <div id="players-container"></div>
+</div>
+
+<!-- ====== RESULT PHASE ====== -->
+<div id="result-phase">
+  <div class="result-label">支払い確定！</div>
+  <div class="result-name" id="result-name"></div>
+  <div class="result-pays">が払います！🧃</div>
+  <div id="push-wrap">
+    <div class="push-hint">▼ 押せるかも？</div>
+    <button id="push-btn">PUSH!!</button>
+  </div>
+  <button id="reset-btn">🔄 もう一度</button>
+</div>
+
+<!-- ====== REVERSAL OVERLAY ====== -->
+<div id="reversal-overlay">
+  <div class="rev-flash">逆転！！！</div>
+  <div class="rev-name" id="rev-name"></div>
+</div>
+
+<script>
+(function () {
+  /* ---- refs ---- */
+  const inputPhase    = document.getElementById('input-phase');
+  const gamePhase     = document.getElementById('game-phase');
+  const resultPhase   = document.getElementById('result-phase');
+  const namesContainer= document.getElementById('names-container');
+  const addBtn        = document.getElementById('add-btn');
+  const startBtn      = document.getElementById('start-btn');
+  const gameHeader    = document.getElementById('game-header');
+  const playersEl     = document.getElementById('players-container');
+  const resultNameEl  = document.getElementById('result-name');
+  const pushWrap      = document.getElementById('push-wrap');
+  const pushBtn       = document.getElementById('push-btn');
+  const resetBtn      = document.getElementById('reset-btn');
+  const reversalOv    = document.getElementById('reversal-overlay');
+  const revNameEl     = document.getElementById('rev-name');
+
+  let playerCount = 2;
+
+  /* ---- add/remove player rows ---- */
+  addBtn.addEventListener('click', () => {
+    if (playerCount >= 5) return;
+    playerCount++;
+    const row = document.createElement('div');
+    row.className = 'name-row';
+    row.innerHTML = `
+      <div class="num">${playerCount}</div>
+      <input type="text" placeholder="名前を入力" maxlength="10">
+      <button class="btn-rm" title="削除">✕</button>`;
+    row.querySelector('.btn-rm').addEventListener('click', () => {
+      row.remove();
+      playerCount--;
+      renumber();
+      addBtn.disabled = false;
+    });
+    namesContainer.appendChild(row);
+    if (playerCount >= 5) addBtn.disabled = true;
+  });
+
+  function renumber() {
+    namesContainer.querySelectorAll('.name-row').forEach((r, i) => {
+      r.querySelector('.num').textContent = i + 1;
+    });
+  }
+
+  /* ---- start ---- */
+  startBtn.addEventListener('click', () => {
+    const inputs = namesContainer.querySelectorAll('input');
+    const players = [...inputs].map(i => i.value.trim()).filter(Boolean);
+    if (players.length < 2) { alert('2人以上の名前を入力してください'); return; }
+    startGame(players);
+  });
+
+  /* ======================================================
+     GAME LOGIC
+  ====================================================== */
+  function startGame(players) {
+    inputPhase.style.display  = 'none';
+    resultPhase.style.display = 'none';
+    gamePhase.style.display   = 'flex';
+    gamePhase.style.flexDirection = 'column';
+    gamePhase.style.alignItems    = 'center';
+
+    const n = players.length;
+    const values     = players.map(() => rand(20, 55));  // initial %
+    const active     = players.map(() => true);          // not eliminated
+    const TOTAL_MS   = 9000;
+    const NARROW_MS  = 5500;  // start eliminating
+    let elapsed      = 0;
+    const TICK       = 80;
+
+    /* build cards */
+    playersEl.innerHTML = '';
+    players.forEach((name, i) => {
+      const card = document.createElement('div');
+      card.className = 'player-card';
+      card.id = `pc-${i}`;
+      card.innerHTML = `
+        <div class="card-top">
+          <span class="p-name">${escHtml(name)}</span>
+          <span class="p-pct" id="pct-${i}">0%</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-${i}" style="width:0%"></div></div>`;
+      playersEl.appendChild(card);
+    });
+
+    let elimOrder = shuffle([...Array(n).keys()]);  // random elimination order, last = winner
+    let elimStep  = 0;
+    let winnerIdx = elimOrder[n - 1];
+
+    const interval = setInterval(() => {
+      elapsed += TICK;
+
+      /* ---- elimination phase ---- */
+      const activeCount = active.filter(Boolean).length;
+
+      if (elapsed >= NARROW_MS && activeCount > 1) {
+        /* eliminate one player roughly every 800ms once in narrow phase */
+        const sinceNarrow = elapsed - NARROW_MS;
+        const targetElim  = Math.floor(sinceNarrow / 900);
+        while (elimStep < targetElim && elimStep < n - 1) {
+          const idx = elimOrder[elimStep];
+          active[idx] = false;
+          values[idx] = 0;
+          document.getElementById(`pc-${idx}`).classList.add('eliminated');
+          elimStep++;
+        }
+      }
+
+      /* ---- update values ---- */
+      const remaining = active.filter(Boolean).length;
+      players.forEach((_, i) => {
+        if (!active[i]) return;
+        if (remaining === 1) {
+          /* winner: ramp to 100 */
+          values[i] = Math.min(100, values[i] + 1.8);
+        } else {
+          /* random walk */
+          const drift = (Math.random() - 0.42) * 14;
+          values[i]   = clamp(values[i] + drift, 8, 97);
+        }
+      });
+
+      /* ---- render ---- */
+      players.forEach((_, i) => {
+        const v    = values[i];
+        const card = document.getElementById(`pc-${i}`);
+        const bar  = document.getElementById(`bar-${i}`);
+        const pct  = document.getElementById(`pct-${i}`);
+        if (!active[i]) return;
+
+        bar.style.width    = v + '%';
+        pct.textContent    = Math.round(v) + '%';
+        card.classList.remove('hot', 'rainbow');
+        if      (v >= 90) card.classList.add('rainbow');
+        else if (v >= 70) card.classList.add('hot');
+      });
+
+      /* ---- end condition ---- */
+      const done = remaining === 1 && values[winnerIdx] >= 99.5;
+      if (done || elapsed >= TOTAL_MS + 1000) {
+        clearInterval(interval);
+        /* force cleanup */
+        players.forEach((_, i) => {
+          if (i !== winnerIdx) { active[i] = false; document.getElementById(`pc-${i}`).classList.add('eliminated'); }
+        });
+        values[winnerIdx] = 100;
+        document.getElementById(`bar-${winnerIdx}`).style.width = '100%';
+        document.getElementById(`pct-${winnerIdx}`).textContent = '100%';
+        document.getElementById(`pc-${winnerIdx}`).classList.remove('hot');
+        document.getElementById(`pc-${winnerIdx}`).classList.add('rainbow', 'shimmer');
+
+        gameHeader.textContent = '🎯 結果発表！';
+        setTimeout(() => showResult(players, winnerIdx), 900);
+      }
+    }, TICK);
+  }
+
+  /* ======================================================
+     RESULT
+  ====================================================== */
+  function showResult(players, winnerIdx) {
+    gamePhase.style.display   = 'none';
+    resultPhase.style.display = 'flex';
+    resultPhase.style.flexDirection = 'column';
+    resultPhase.style.alignItems    = 'center';
+
+    resultNameEl.textContent = players[winnerIdx] + 'さん';
+    resultNameEl.style.animation = 'none';
+    void resultNameEl.offsetWidth;
+    resultNameEl.style.animation = '';
+
+    burst();
+
+    /* PUSH button: 55% chance, appears 1.5–4s after reveal */
+    const showPush = Math.random() < 0.55 && players.length > 1;
+    if (showPush) {
+      const delay = 1500 + Math.random() * 2500;
+      setTimeout(() => {
+        pushWrap.style.display = 'flex';
+        pushBtn._players   = players;
+        pushBtn._winnerIdx = winnerIdx;
+      }, delay);
+    } else {
+      setTimeout(() => { resetBtn.style.display = 'block'; }, 1200);
+    }
+  }
+
+  /* ======================================================
+     PUSH → REVERSAL
+  ====================================================== */
+  pushBtn.addEventListener('click', () => {
+    const players   = pushBtn._players;
+    const oldWinner = pushBtn._winnerIdx;
+    const others    = players.map((_, i) => i).filter(i => i !== oldWinner);
+    const newWinner = others[Math.floor(Math.random() * others.length)];
+
+    pushWrap.style.display = 'none';
+
+    /* show reversal overlay */
+    reversalOv.style.display = 'flex';
+    revNameEl.textContent    = '';
+    revNameEl.style.animation = 'none';
+    void revNameEl.offsetWidth;
+    revNameEl.style.animation = '';
+
+    setTimeout(() => {
+      revNameEl.textContent  = players[newWinner] + 'さんが払います！🧃';
+      revNameEl.style.animation = 'rev-name-in 0.4s ease-out forwards';
+    }, 800);
+
+    setTimeout(() => {
+      reversalOv.style.display = 'none';
+      resultNameEl.textContent = players[newWinner] + 'さん';
+      resultNameEl.style.animation = 'none';
+      void resultNameEl.offsetWidth;
+      resultNameEl.style.animation = '';
+      burst();
+      resetBtn.style.display = 'block';
+    }, 3200);
+  });
+
+  resetBtn.addEventListener('click', () => location.reload());
+
+  /* ======================================================
+     HELPERS
+  ====================================================== */
+  function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function burst() {
+    const icons = ['🎉','🧃','💦','✨','⭐','🌈','💰','😂','🎊','🥤'];
+    for (let i = 0; i < 28; i++) {
+      setTimeout(() => {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.textContent = icons[Math.floor(Math.random() * icons.length)];
+        const dur  = 1.6 + Math.random() * 1.2;
+        const left = Math.random() * 100;
+        p.style.cssText = `left:${left}vw;top:-50px;animation-duration:${dur}s`;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), dur * 1000 + 100);
+      }, i * 70);
+    }
+  }
+})();
+</script>
+</body>
+</html>
