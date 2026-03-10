@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>メモ帳</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #181825;
+      padding: 12px 16px 0;
+      border-bottom: 2px solid #313244;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      color: #89b4fa;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 8px 8px 0 0;
+      background: #313244;
+      color: #a6adc8;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      min-width: 0;
+      max-width: 160px;
+      transition: background .15s, color .15s;
+      user-select: none;
+    }
+    .tab:hover { background: #45475a; color: #cdd6f4; }
+    .tab.active {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-top: 2px solid #89b4fa;
+      padding-top: 5px;
+    }
+
+    .tab-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      outline: none;
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .tab.active .tab-title { cursor: text; }
+
+    .tab-close {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: #6c7086;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s, color .15s;
+    }
+    .tab-close:hover { background: #f38ba8; color: #1e1e2e; }
+
+    .tab-add {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px 8px 0 0;
+      border: none;
+      background: transparent;
+      color: #6c7086;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color .15s;
+    }
+    .tab-add:hover { color: #89b4fa; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #181825;
+      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #45475a;
+      background: #313244;
+      color: #cdd6f4;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .btn:hover { background: #45475a; border-color: #585b70; }
+    .btn.success { border-color: #a6e3a1; color: #a6e3a1; }
+
+    .btn-delete {
+      margin-left: auto;
+      border-color: #f38ba8;
+      color: #f38ba8;
+    }
+    .btn-delete:hover { background: #f38ba8; color: #1e1e2e; }
+
+    .status {
+      font-size: 12px;
+      color: #6c7086;
+      margin-left: 4px;
+    }
+    .status.saved { color: #a6e3a1; }
+
+    /* ── Editor ── */
+    .editor-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 16px;
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      background: #181825;
+      color: #cdd6f4;
+      border: 1px solid #313244;
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 15px;
+      line-height: 1.7;
+      resize: none;
+      outline: none;
+      font-family: 'Cascadia Code', 'Source Code Pro', 'Courier New', monospace;
+      transition: border-color .2s;
+    }
+    textarea:focus { border-color: #89b4fa; }
+    textarea::placeholder { color: #45475a; }
+
+    /* ── Footer ── */
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      background: #181825;
+      border-top: 1px solid #313244;
+      font-size: 12px;
+      color: #6c7086;
+      flex-shrink: 0;
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #a6e3a1;
+      color: #1e1e2e;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📝 メモ帳</h1>
+  <div class="tab-bar" id="tabBar">
+    <!-- tabs injected by JS -->
+    <button class="tab-add" id="btnAddTab" title="新しいメモを追加">＋</button>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn" id="btnCopy">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    全文コピー
+  </button>
+  <button class="btn" id="btnClear">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+    クリア
+  </button>
+  <span class="status" id="saveStatus">保存済み</span>
+  <button class="btn btn-delete" id="btnDeleteTab">
+    このメモを削除
+  </button>
+</div>
+
+<div class="editor-wrap">
+  <textarea id="editor" placeholder="ここにメモを入力してください…"></textarea>
+</div>
+
+<footer>
+  <span id="charCount">0 文字</span>
+  <span id="lineCount">1 行</span>
+</footer>
+
+<div id="toast">コピーしました！</div>
+
+<script>
+  // ─── State ────────────────────────────────────────────────────────────────
+  const STORAGE_KEY = 'notepad_v1';
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return null;
+  }
+
+  function defaultState() {
+    return {
+      tabs: [{ id: uid(), title: 'メモ 1', content: '' }],
+      active: null  // set after creation
+    };
+  }
+
+  let state = loadState() || defaultState();
+  if (!state.active || !state.tabs.find(t => t.id === state.active)) {
+    state.active = state.tabs[0].id;
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function activeTab() {
+    return state.tabs.find(t => t.id === state.active);
+  }
+
+  // ─── DOM refs ─────────────────────────────────────────────────────────────
+  const tabBar      = document.getElementById('tabBar');
+  const btnAddTab   = document.getElementById('btnAddTab');
+  const editor      = document.getElementById('editor');
+  const btnCopy     = document.getElementById('btnCopy');
+  const btnClear    = document.getElementById('btnClear');
+  const btnDeleteTab= document.getElementById('btnDeleteTab');
+  const saveStatus  = document.getElementById('saveStatus');
+  const charCount   = document.getElementById('charCount');
+  const lineCount   = document.getElementById('lineCount');
+  const toast       = document.getElementById('toast');
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function renderTabs() {
+    // Remove old tabs (keep the + button)
+    [...tabBar.querySelectorAll('.tab')].forEach(el => el.remove());
+
+    state.tabs.forEach(tab => {
+      const el = document.createElement('div');
+      el.className = 'tab' + (tab.id === state.active ? ' active' : '');
+      el.dataset.id = tab.id;
+
+      // Editable title
+      const titleEl = document.createElement('span');
+      titleEl.className = 'tab-title';
+      titleEl.textContent = tab.title;
+      titleEl.title = tab.title;
+
+      // Make title editable on double-click (active tab only)
+      titleEl.addEventListener('dblclick', e => {
+        if (tab.id !== state.active) return;
+        e.stopPropagation();
+        titleEl.contentEditable = 'true';
+        titleEl.focus();
+        document.execCommand('selectAll', false, null);
+      });
+      titleEl.addEventListener('blur', () => {
+        titleEl.contentEditable = 'false';
+        const newTitle = titleEl.textContent.trim() || 'メモ';
+        tab.title = newTitle;
+        titleEl.textContent = newTitle;
+        titleEl.title = newTitle;
+        save();
+      });
+      titleEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+        if (e.key === 'Escape') {
+          titleEl.textContent = tab.title;
+          titleEl.blur();
+        }
+      });
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'tab-close';
+      closeBtn.innerHTML = '×';
+      closeBtn.title = 'タブを閉じる';
+      closeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteTab(tab.id);
+      });
+
+      el.appendChild(titleEl);
+      el.appendChild(closeBtn);
+
+      el.addEventListener('click', () => switchTab(tab.id));
+
+      tabBar.insertBefore(el, btnAddTab);
+    });
+  }
+
+  function renderEditor() {
+    const tab = activeTab();
+    editor.value = tab ? tab.content : '';
+    updateFooter();
+  }
+
+  function updateFooter() {
+    const text = editor.value;
+    charCount.textContent = text.length + ' 文字';
+    lineCount.textContent = (text === '' ? 1 : text.split('\n').length) + ' 行';
+  }
+
+  function render() {
+    renderTabs();
+    renderEditor();
+  }
+
+  // ─── Actions ──────────────────────────────────────────────────────────────
+  function switchTab(id) {
+    // flush current content first
+    const cur = activeTab();
+    if (cur) cur.content = editor.value;
+    state.active = id;
+    save();
+    render();
+    editor.focus();
+  }
+
+  function addTab() {
+    const num = state.tabs.length + 1;
+    const tab = { id: uid(), title: 'メモ ' + num, content: '' };
+    // flush current
+    const cur = activeTab();
+    if (cur) cur.content = editor.value;
+    state.tabs.push(tab);
+    state.active = tab.id;
+    save();
+    render();
+    editor.focus();
+  }
+
+  function deleteTab(id) {
+    if (state.tabs.length === 1) {
+      // Reset instead of delete when only one tab
+      state.tabs[0].content = '';
+      state.tabs[0].title = 'メモ 1';
+      state.active = state.tabs[0].id;
+      save();
+      render();
+      return;
+    }
+    const idx = state.tabs.findIndex(t => t.id === id);
+    state.tabs.splice(idx, 1);
+    if (state.active === id) {
+      state.active = state.tabs[Math.min(idx, state.tabs.length - 1)].id;
+    }
+    save();
+    render();
+    editor.focus();
+  }
+
+  // ─── Auto-save ────────────────────────────────────────────────────────────
+  let saveTimer = null;
+
+  editor.addEventListener('input', () => {
+    const tab = activeTab();
+    if (!tab) return;
+    tab.content = editor.value;
+    updateFooter();
+
+    saveStatus.textContent = '保存中…';
+    saveStatus.className = 'status';
+
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      save();
+      saveStatus.textContent = '自動保存済み ✓';
+      saveStatus.className = 'status saved';
+      setTimeout(() => {
+        saveStatus.textContent = '保存済み';
+        saveStatus.className = 'status';
+      }, 1500);
+    }, 600);
+  });
+
+  // ─── Copy ─────────────────────────────────────────────────────────────────
+  btnCopy.addEventListener('click', async () => {
+    const text = editor.value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      // fallback
+      editor.select();
+      document.execCommand('copy');
+      editor.setSelectionRange(0, 0);
+    }
+    showToast('コピーしました！');
+  });
+
+  // ─── Clear ────────────────────────────────────────────────────────────────
+  btnClear.addEventListener('click', () => {
+    if (editor.value && !confirm('このメモの内容を消去しますか？')) return;
+    editor.value = '';
+    const tab = activeTab();
+    if (tab) tab.content = '';
+    save();
+    updateFooter();
+    editor.focus();
+  });
+
+  // ─── Delete tab ───────────────────────────────────────────────────────────
+  btnDeleteTab.addEventListener('click', () => {
+    const tab = activeTab();
+    if (!tab) return;
+    if (state.tabs.length === 1) {
+      deleteTab(tab.id);
+      return;
+    }
+    if (confirm(`「${tab.title}」を削除しますか？`)) {
+      deleteTab(tab.id);
+    }
+  });
+
+  // ─── Add tab ──────────────────────────────────────────────────────────────
+  btnAddTab.addEventListener('click', addTab);
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === 't') { e.preventDefault(); addTab(); }
+    if (mod && e.key === 'w') { e.preventDefault(); deleteTab(state.active); }
+    // Ctrl+1..9 switch tabs
+    if (mod && e.key >= '1' && e.key <= '9') {
+      const idx = parseInt(e.key) - 1;
+      if (state.tabs[idx]) { e.preventDefault(); switchTab(state.tabs[idx].id); }
+    }
+  });
+
+  // ─── Toast ────────────────────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  render();
+  editor.focus();
+</script>
+</body>
+</html>
